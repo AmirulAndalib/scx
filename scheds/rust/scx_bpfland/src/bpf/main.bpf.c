@@ -1272,14 +1272,13 @@ void BPF_STRUCT_OPS(bpfland_cpu_release, s32 cpu, struct scx_cpu_release_args *a
 void BPF_STRUCT_OPS(bpfland_set_cpumask, struct task_struct *p,
 		    const struct cpumask *cpumask)
 {
-	s32 cpu = bpf_get_smp_processor_id();
 	struct task_ctx *tctx;
 
 	tctx = try_lookup_task_ctx(p);
 	if (!tctx)
 		return;
 
-	task_update_domain(p, tctx, cpu, cpumask);
+	task_update_domain(p, tctx, scx_bpf_task_cpu(p), p->cpus_ptr);
 }
 
 void BPF_STRUCT_OPS(bpfland_enable, struct task_struct *p)
@@ -1291,6 +1290,9 @@ void BPF_STRUCT_OPS(bpfland_enable, struct task_struct *p)
 	if (!tctx)
 		return;
 
+	/* Update task's cpumasks */
+	task_update_domain(p, tctx, scx_bpf_task_cpu(p), p->cpus_ptr);
+
 	/*
 	 * Initialize the task vruntime to the current global vruntime.
 	 */
@@ -1300,7 +1302,6 @@ void BPF_STRUCT_OPS(bpfland_enable, struct task_struct *p)
 s32 BPF_STRUCT_OPS(bpfland_init_task, struct task_struct *p,
 		   struct scx_init_task_args *args)
 {
-	s32 cpu = bpf_get_smp_processor_id();
 	struct task_ctx *tctx;
 	struct bpf_cpumask *cpumask;
 
@@ -1335,8 +1336,6 @@ s32 BPF_STRUCT_OPS(bpfland_init_task, struct task_struct *p,
 	cpumask = bpf_kptr_xchg(&tctx->l3_cpumask, cpumask);
 	if (cpumask)
 		bpf_cpumask_release(cpumask);
-
-	task_update_domain(p, tctx, cpu, p->cpus_ptr);
 
 	return 0;
 }
