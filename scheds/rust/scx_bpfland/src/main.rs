@@ -191,12 +191,12 @@ struct Opts {
     /// tasks may overflow to other available CPUs.
     ///
     /// Special values:
-    ///  - "auto" = automatically detect the CPUs based on the active power profile
+    ///  - "all" = all CPUs assigned to the primary domain
+    ///  - "auto" = automatically detect the optimal CPUs based on the active power profile
     ///  - "performance" = automatically detect and prioritize the fastest CPUs
     ///  - "powersave" = automatically detect and prioritize the slowest CPUs
-    ///  - "all" = all CPUs assigned to the primary domain
     ///  - "none" = no prioritization, tasks are dispatched on the first CPU available
-    #[clap(short = 'm', long, default_value = "auto")]
+    #[clap(short = 'm', long, default_value = "all")]
     primary_domain: String,
 
     /// Disable L2 cache awareness.
