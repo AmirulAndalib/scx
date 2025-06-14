@@ -2983,7 +2983,7 @@ fn main() -> Result<()> {
     };
     let mut lcfg = simplelog::ConfigBuilder::new();
     lcfg.set_time_offset_to_local()
-        .unwrap()
+        .expect("Failed to set local time offset")
         .set_time_level(simplelog::LevelFilter::Error)
         .set_location_level(simplelog::LevelFilter::Off)
         .set_target_level(simplelog::LevelFilter::Off)
@@ -3043,23 +3043,29 @@ fn main() -> Result<()> {
             match spec.template {
                 Some(ref rule) => {
                     let matches = expand_template(&rule)?;
-                    for (mt, mask) in matches {
-                        let mut genspec = spec.clone();
+                    // in the absence of matching cgroups, have template layers
+                    // behave as non-template layers do.
+                    if matches.is_empty() {
+                        layer_config.specs.push(spec);
+                    } else {
+                        for (mt, mask) in matches {
+                            let mut genspec = spec.clone();
 
-                        genspec.cpuset = Some(mask);
+                            genspec.cpuset = Some(mask);
 
-                        // Push the new "and" rule into each "or" term.
-                        for orterm in &mut genspec.matches {
-                            orterm.push(mt.clone());
+                            // Push the new "and" rule into each "or" term.
+                            for orterm in &mut genspec.matches {
+                                orterm.push(mt.clone());
+                            }
+
+                            match &mt {
+                                LayerMatch::CgroupSuffix(cgroup) => genspec.name.push_str(cgroup),
+                                _ => bail!("Template match has unexpected type"),
+                            }
+
+                            // Push the generated layer into the config
+                            layer_config.specs.push(genspec);
                         }
-
-                        match &mt {
-                            LayerMatch::CgroupSuffix(cgroup) => genspec.name.push_str(cgroup),
-                            _ => bail!("Template match has unexpected type"),
-                        }
-
-                        // Push the generated layer into the config
-                        layer_config.specs.push(genspec);
                     }
                 }
 

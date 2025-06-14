@@ -51,7 +51,7 @@ if __name__ == "__main__":
             "kernel-versions.json not found. Are you running this script from the root of the scx repo?"
         ) from exc
 
-    diff = False
+    updated_kernels = []
 
     if args.versions:
         versions_set = set(args.versions)
@@ -79,12 +79,29 @@ if __name__ == "__main__":
         v["narHash"] = narHash
         v["kernelVersion"] = kver
 
-        diff = True
+        updated_kernels.append(k)
 
-    if not diff:
+    if not updated_kernels:
         print("No changes made, exiting.")
         sys.exit(0)
 
     content = json.dumps(data, indent=2)
     with open("kernel-versions.json", "w") as f:
         f.write(content)
+
+    result = subprocess.run(["git", "diff", "--cached", "--quiet"], capture_output=True)
+    if result.returncode != 0:
+        print("Error: There are staged changes. Please commit or unstage them first.")
+        sys.exit(1)
+
+    subprocess.run(["git", "add", "kernel-versions.json"], check=True)
+
+    if len(updated_kernels) == 1:
+        commit_message = f"chore(deps): update {updated_kernels[0]} kernel\n"
+    else:
+        commit_message = "chore(deps): update kernel versions\n"
+
+    for kernel in updated_kernels:
+        commit_message += f"\nCI-Test-Kernel: {kernel}"
+
+    subprocess.run(["git", "commit", "-m", commit_message], check=True)
